@@ -89,9 +89,9 @@ func TestAllDrivers_OrderIsConsistent(t *testing.T) {
 func TestAllDrivers_Count(t *testing.T) {
 	drivers := AllDrivers()
 
-	// Currently should have exactly 1 driver (Vitest)
+	// Currently should have exactly 2 drivers (Vitest, Go)
 	// This test will need updating when more drivers are added
-	expectedCount := 1
+	expectedCount := 2
 	if len(drivers) != expectedCount {
 		t.Errorf("AllDrivers() returned %d drivers, expected %d", len(drivers), expectedCount)
 	}
