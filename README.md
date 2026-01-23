@@ -14,7 +14,7 @@ Because running tests shouldn't require remembering complex commands or switchin
 
 ## Features
 
-- **Auto-detection**: Automatically detects your test framework (currently supports Vitest)
+- **Auto-detection**: Automatically detects your test framework (currently supports Vitest and Go)
 - **Interactive UI**: Navigate tests with vim-style keybindings
 - **Live output**: See test results as they happen
 - **Fast filtering**: Quickly find tests with fuzzy search
@@ -47,6 +47,7 @@ lazytest
 ## Supported Test Frameworks
 
 - [x] Vitest
+- [x] Go (go test)
 - [ ] Your framework here? [Submit a PR!](CONTRIBUTING.md)
 
 ## Requirements
