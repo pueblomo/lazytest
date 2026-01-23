@@ -44,6 +44,29 @@ Navigate to your project directory and run:
 lazytest
 ```
 
+### Keybindings
+
+#### Test List Panel
+- `↑/k` - Move up
+- `↓/j` - Move down
+- `enter` - Run selected test
+- `/` - Filter tests
+- `tab` - Switch focus
+- `w` - Toggle watch mode for selected test
+- `q` - Quit
+
+#### Output Panel
+- `tab` - Switch focus
+- `↑/k` - Scroll up
+- `↓/j` - Scroll down
+- `q` - Quit
+
+#### Logs Panel
+- `tab` - Switch focus
+- `↑/k` - Scroll up
+- `↓/j` - Scroll down
+- `q` - Quit
+
 ## Supported Test Frameworks
 
 - [x] Vitest

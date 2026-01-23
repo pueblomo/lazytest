@@ -141,50 +141,32 @@ func TestIntegration_ConcurrentUpdates(t *testing.T) {
 
 	m := newTestModelReady()
 
-	// Simulate concurrent operations
-	done := make(chan bool, 3)
+	// In a real Bubble Tea application, all updates go through the Update method sequentially.
+	// This test verifies that rapid sequential updates work correctly.
 
-	// Goroutine 1: Add logs
-	go func() {
-		for i := 0; i < 5; i++ {
-			m.appendToLog("Log from goroutine 1")
-			time.Sleep(5 * time.Millisecond)
-		}
-		done <- true
-	}()
+	// Simulate rapid sequential operations (as would happen in real usage)
+	for i := 0; i < 5; i++ {
+		m.appendToLog("Log entry " + string(rune('0'+i)))
+	}
 
-	// Goroutine 2: Update output
-	go func() {
-		for i := 0; i < 5; i++ {
-			m.updateOutputView("Output " + string(rune('0'+i)))
-			time.Sleep(5 * time.Millisecond)
-		}
-		done <- true
-	}()
+	for i := 0; i < 5; i++ {
+		m.updateOutputView("Output " + string(rune('0'+i)))
+	}
 
-	// Goroutine 3: Update dimensions
-	go func() {
-		sizes := []struct{ w, h int }{{100, 50}, {120, 60}, {80, 40}}
-		for _, sz := range sizes {
-			m.updateSizes(sz.w, sz.h)
-			time.Sleep(10 * time.Millisecond)
-		}
-		done <- true
-	}()
-
-	// Wait for all goroutines
-	for i := 0; i < 3; i++ {
-		select {
-		case <-done:
-			// Success
-		case <-time.After(5 * time.Second):
-			t.Fatal("Concurrent operations timed out")
-		}
+	sizes := []struct{ w, h int }{{100, 50}, {120, 60}, {80, 40}}
+	for _, sz := range sizes {
+		m.updateSizes(sz.w, sz.h)
 	}
 
 	// Verify model is still in valid state
-	view := m.View()
-	assertViewNotEmpty(t, view)
+	if len(m.logLine) != 5 {
+		t.Errorf("Expected 5 log lines, got %d", len(m.logLine))
+	}
+
+	// Verify final dimensions
+	if m.width != 80 || m.height != 40 {
+		t.Errorf("Expected dimensions (80, 40), got (%d, %d)", m.width, m.height)
+	}
 }
 
 func TestIntegration_DriverDetection(t *testing.T) {
