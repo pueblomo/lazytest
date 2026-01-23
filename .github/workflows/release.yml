@@ -1,0 +1,133 @@
+name: Release
+
+on:
+  release:
+    types: [created]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    name: Release Build
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        include:
+          # Linux
+          - goos: linux
+            goarch: amd64
+            output: lazytest-linux-amd64
+          - goos: linux
+            goarch: arm64
+            output: lazytest-linux-arm64
+
+          # macOS
+          - goos: darwin
+            goarch: amd64
+            output: lazytest-darwin-amd64
+          - goos: darwin
+            goarch: arm64
+            output: lazytest-darwin-arm64
+
+          # Windows
+          - goos: windows
+            goarch: amd64
+            output: lazytest-windows-amd64.exe
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25'
+        cache: true
+
+    - name: Get version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" = "release" ]; then
+          echo "version=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+        else
+          echo "version=$(git describe --tags --always --dirty)" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Build binary
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+        CGO_ENABLED: 0
+      run: |
+        go build -v -ldflags="-s -w -X main.version=${{ steps.version.outputs.version }}" \
+          -o ${{ matrix.output }} ./cmd/lazytest
+
+    - name: Create tarball (Unix)
+      if: matrix.goos != 'windows'
+      run: |
+        tar -czf ${{ matrix.output }}.tar.gz ${{ matrix.output }}
+        sha256sum ${{ matrix.output }}.tar.gz > ${{ matrix.output }}.tar.gz.sha256
+
+    - name: Create zip (Windows)
+      if: matrix.goos == 'windows'
+      run: |
+        zip ${{ matrix.output }}.zip ${{ matrix.output }}
+        sha256sum ${{ matrix.output }}.zip > ${{ matrix.output }}.zip.sha256
+
+    - name: Upload Release Asset (Unix)
+      if: github.event_name == 'release' && matrix.goos != 'windows'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ./${{ matrix.output }}.tar.gz
+        asset_name: ${{ matrix.output }}.tar.gz
+        asset_content_type: application/gzip
+
+    - name: Upload Release Checksum (Unix)
+      if: github.event_name == 'release' && matrix.goos != 'windows'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ./${{ matrix.output }}.tar.gz.sha256
+        asset_name: ${{ matrix.output }}.tar.gz.sha256
+        asset_content_type: text/plain
+
+    - name: Upload Release Asset (Windows)
+      if: github.event_name == 'release' && matrix.goos == 'windows'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ./${{ matrix.output }}.zip
+        asset_name: ${{ matrix.output }}.zip
+        asset_content_type: application/zip
+
+    - name: Upload Release Checksum (Windows)
+      if: github.event_name == 'release' && matrix.goos == 'windows'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ./${{ matrix.output }}.zip.sha256
+        asset_name: ${{ matrix.output }}.zip.sha256
+        asset_content_type: text/plain
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.output }}
+        path: |
+          ${{ matrix.output }}*
+        retention-days: 7

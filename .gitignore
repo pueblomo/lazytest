@@ -1,0 +1,4 @@
+.idea
+*.out
+/lazytest
+coverage.html
