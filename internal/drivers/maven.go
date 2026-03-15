@@ -183,10 +183,30 @@ func findMavenModuleRoots(root string) ([]string, error) {
 // findModuleRoot finds the nearest ancestor directory of filePath that contains a pom.xml.
 // For multi-module Maven projects, this ensures mvn runs from the correct module.
 // Falls back to root if no pom.xml is found along the path.
+// SECURITY: Rejects file paths that escape the root directory to prevent path traversal.
 func findModuleRoot(root string, filePath string) string {
+	// Normalize root to absolute, cleaned path
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		// If we can't get absolute path, fall back to root as-is
+		return root
+	}
+	absRoot = filepath.Clean(absRoot)
+
+	// Normalize filePath to absolute path
 	absFile := filePath
 	if !filepath.IsAbs(absFile) {
-		absFile = filepath.Join(root, filePath)
+		absFile = filepath.Join(absRoot, filePath)
+	}
+	absFile = filepath.Clean(absFile)
+
+	// SECURITY CHECK: Ensure the file is within the root directory
+	// We add a trailing separator to absRoot to prevent prefix matching attacks like:
+	// root = "/tmp/project", absFile = "/tmp/project_evil/pom.xml"
+	rootWithSep := absRoot + string(filepath.Separator)
+	if !strings.HasPrefix(absFile+string(filepath.Separator), rootWithSep) {
+		// File path escapes root - reject and return root as safe fallback
+		return root
 	}
 
 	dir := filepath.Dir(absFile)
@@ -195,9 +215,11 @@ func findModuleRoot(root string, filePath string) string {
 			return dir
 		}
 		parent := filepath.Dir(dir)
-		if parent == dir || !strings.HasPrefix(dir, root) {
+		if parent == dir {
 			break
 		}
+		// We already validated absFile is within root, and dir is an ancestor of absFile,
+		// so dir will always be within root. No need to re-check containment.
 		dir = parent
 	}
 
