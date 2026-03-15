@@ -91,7 +91,7 @@ func TestAllDrivers_Count(t *testing.T) {
 
 	// Currently should have exactly 2 drivers (Vitest, Go)
 	// This test will need updating when more drivers are added
-	expectedCount := 2
+	expectedCount := 4
 	if len(drivers) != expectedCount {
 		t.Errorf("AllDrivers() returned %d drivers, expected %d", len(drivers), expectedCount)
 	}
