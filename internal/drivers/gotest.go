@@ -20,12 +20,26 @@ func (d *GoTestDriver) Name() string {
 }
 
 func (d *GoTestDriver) Detect(root string) (bool, error) {
+	// Check for go.mod or go.work at the root
 	goModPath := filepath.Join(root, "go.mod")
-	if _, err := os.Stat(goModPath); err != nil {
-		if os.IsNotExist(err) {
-			return false, nil
-		}
+	goWorkPath := filepath.Join(root, "go.work")
+
+	hasGoMod := false
+	if stat, err := os.Stat(goModPath); err == nil && !stat.IsDir() {
+		hasGoMod = true
+	} else if err != nil && !os.IsNotExist(err) {
 		return false, err
+	}
+
+	hasGoWork := false
+	if stat, err := os.Stat(goWorkPath); err == nil && !stat.IsDir() {
+		hasGoWork = true
+	} else if err != nil && !os.IsNotExist(err) {
+		return false, err
+	}
+
+	if !hasGoMod && !hasGoWork {
+		return false, nil
 	}
 
 	hasTests := false
@@ -61,12 +75,19 @@ func (d *GoTestDriver) RunTest(ctx context.Context, root string, testCase list.I
 }
 
 func (d *GoTestDriver) buildTestCommand(ctx context.Context, root string, filePath string) *exec.Cmd {
-	dir := filepath.Dir(filePath)
+	// Sanitize the file path to ensure it stays within root
+	safeAbs := ContainPath(root, filePath)
+
+	// Compute relative path from root to the test file
+	rel, err := filepath.Rel(root, safeAbs)
+	if err != nil {
+		rel = filePath // fallback to original
+	}
+	dir := filepath.Dir(rel)
 	packagePath := "./" + dir
 
 	cmd := exec.CommandContext(ctx, "go", "test", "-v", packagePath)
 	cmd.Dir = root
-
 	return cmd
 }
 
@@ -75,20 +96,26 @@ func (d *GoTestDriver) executeTestCommand(cmd *exec.Cmd) (types.TestStatus, stri
 	outputString := string(output)
 
 	if err != nil {
-		if strings.Contains(outputString, "FAIL") {
+		// If the command started and exited with non-zero, it's a test failure
+		if _, ok := err.(*exec.ExitError); ok {
+			if strings.Contains(outputString, "FAIL") {
+				return types.StatusFailed, outputString, nil
+			}
+			// Without explicit FAIL, still treat as failure
 			return types.StatusFailed, outputString, nil
 		}
-		return types.StatusFailed, outputString, fmt.Errorf("test command %v failed: %w", cmd.Args, err)
+		// Command didn't start or was canceled
+		return types.StatusFailed, outputString, err
 	}
 
-	if strings.Contains(outputString, "PASS") {
-		return types.StatusPassed, outputString, nil
-	}
-
+	// Success
 	if strings.Contains(outputString, "SKIP") {
 		return types.StatusSkipped, outputString, nil
 	}
-
+	if strings.Contains(outputString, "PASS") {
+		return types.StatusPassed, outputString, nil
+	}
+	// Default to passed if no explicit fail/skip and no error
 	return types.StatusPassed, outputString, nil
 }
 
