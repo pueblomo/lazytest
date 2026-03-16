@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/pueblomo/lazytest/internal/types"
@@ -504,13 +505,14 @@ func TestVitestDriver_ExecuteTestCommand_SkippedStatus(t *testing.T) {
 func TestVitestDriver_ExecuteTestCommand_CommandError(t *testing.T) {
 	driver := &VitestDriver{}
 
-	// Create a command that will fail
+	// Create a command that will fail (exit 1 = ExitError, treated as test failure)
 	cmd := exec.Command("false")
 
 	status, output, err := driver.executeTestCommand(cmd)
 
-	if err == nil {
-		t.Error("executeTestCommand() should return error when command fails")
+	// ExitError is treated as test failure, not command error
+	if err != nil {
+		t.Errorf("executeTestCommand() should not return error for ExitError: %v", err)
 	}
 
 	if status != types.StatusFailed {
@@ -715,5 +717,124 @@ func TestVitestDriver_Detect_ReadFileError(t *testing.T) {
 
 	if err == nil {
 		t.Error("Detect() should return error when package.json is a directory")
+	}
+}
+
+// Security tests: path containment and monorepo support
+
+func TestContainPath_Vitest(t *testing.T) {
+	root := "/tmp/project"
+	cases := []struct {
+		filePath string
+		want     string
+	}{
+		{"subdir/test.ts", "/tmp/project/subdir/test.ts"},
+		{"../outside", "/tmp/project"},
+		{"../../etc/passwd", "/tmp/project"},
+		{"./test.ts", "/tmp/project/test.ts"},
+		{"subdir/../test.ts", "/tmp/project/test.ts"},
+		{"/tmp/project/subdir/test.ts", "/tmp/project/subdir/test.ts"},
+		{"/tmp/project", "/tmp/project"},
+		{"/tmp/project/", "/tmp/project"},
+		{"subdir/../../outside", "/tmp/project"},
+	}
+	for _, c := range cases {
+		got := ContainPath(root, c.filePath)
+		if got != c.want {
+			t.Errorf("ContainPath(%q, %q) = %q, want %q", root, c.filePath, got, c.want)
+		}
+	}
+}
+
+func TestVitestDriver_findPkgRoot(t *testing.T) {
+	driver := &VitestDriver{}
+	tmpRoot := t.TempDir()
+	absRoot, _ := filepath.Abs(tmpRoot)
+
+	// Create nested package.json
+	pkgDir := filepath.Join(absRoot, "a", "b", "c")
+	err := os.MkdirAll(pkgDir, 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pkgPath := filepath.Join(pkgDir, "package.json")
+	if err := os.WriteFile(pkgPath, []byte("{}"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// File in that directory
+	filePath := filepath.Join(pkgDir, "test.ts")
+
+	got := driver.findPkgRoot(absRoot, filePath)
+	want := pkgDir
+	if got != want {
+		t.Errorf("findPkgRoot(%s, %s) = %s, want %s", absRoot, filePath, got, want)
+	}
+}
+
+func TestVitestDriver_Detect_Workspaces(t *testing.T) {
+	tmpDir := t.TempDir()
+	absRoot, _ := filepath.Abs(tmpDir)
+
+	// Root package.json with workspaces
+	rootPkg := map[string]interface{}{
+		"name": "mono",
+		"workspaces": []string{
+			"packages/*",
+		},
+	}
+	rootData, _ := json.Marshal(rootPkg)
+	os.WriteFile(filepath.Join(absRoot, "package.json"), rootData, 0644)
+
+	// Create workspace: packages/app/package.json with vitest script
+	appDir := filepath.Join(absRoot, "packages", "app")
+	os.MkdirAll(appDir, 0755)
+	appPkg := map[string]interface{}{
+		"name": "app",
+		"scripts": map[string]string{
+			"test": "vitest",
+		},
+	}
+	appData, _ := json.Marshal(appPkg)
+	os.WriteFile(filepath.Join(appDir, "package.json"), appData, 0644)
+
+	driver := &VitestDriver{}
+	detected, err := driver.Detect(absRoot)
+	if err != nil {
+		t.Fatalf("Detect error: %v", err)
+	}
+	if !detected {
+		t.Error("Detect should return true when a workspace uses vitest")
+	}
+}
+
+func TestVitestDriver_BuildTestCommand_PathEscape(t *testing.T) {
+	driver := &VitestDriver{packageManager: "npm"}
+
+	tmpRoot := t.TempDir()
+	absRoot, _ := filepath.Abs(tmpRoot)
+
+	// Create a package.json in root (so moduleRoot is root)
+	pkg := `{"scripts":{"test":"vitest"}}`
+	os.WriteFile(filepath.Join(absRoot, "package.json"), []byte(pkg), 0644)
+
+	// Build command with an escaping path
+	cmd := driver.buildTestCommand(context.Background(), absRoot, "../../../etc/passwd")
+
+	// The command should not include the escaping path in args
+	// It should either have no file arg or a safe file within root
+	hasEscaping := false
+	for _, arg := range cmd.Args {
+		if strings.Contains(arg, "..") {
+			hasEscaping = true
+		}
+	}
+	if hasEscaping {
+		t.Errorf("BuildTestCommand produced escaping argument: %v", cmd.Args)
+	}
+
+	// The command should be run from the module root (root)
+	if cmd.Dir != absRoot {
+		t.Errorf("BuildTestCommand Dir = %s, want %s", cmd.Dir, absRoot)
 	}
 }

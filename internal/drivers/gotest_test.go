@@ -235,8 +235,9 @@ func TestGoTestDriver_ExecuteTestCommand_CommandError(t *testing.T) {
 
 	status, output, err := driver.executeTestCommand(cmd)
 
-	if err == nil {
-		t.Error("Expected error for command failure")
+	// ExitError is treated as test failure, not command error
+	if err != nil {
+		t.Errorf("Expected no error for ExitError (test failure): %v", err)
 	}
 
 	if status != types.StatusFailed {
@@ -432,5 +433,78 @@ func TestGoTestDriver_ExecuteTestCommand_EmptyOutput(t *testing.T) {
 
 	if output != "\n" && output != "" {
 		t.Errorf("Expected empty or newline output, got %q", output)
+	}
+}
+
+// Security tests: path containment and go.work support
+
+func TestContainPath_GoTest(t *testing.T) {
+	root := "/tmp/project"
+	cases := []struct {
+		filePath string
+		want     string
+	}{
+		{"pkg/test.go", "/tmp/project/pkg/test.go"},
+		{"../outside", "/tmp/project"},
+		{"../../etc/passwd", "/tmp/project"},
+		{"./test.go", "/tmp/project/test.go"},
+		{"pkg/../test.go", "/tmp/project/test.go"},
+		{"/tmp/project/pkg/test.go", "/tmp/project/pkg/test.go"},
+		{"/tmp/project", "/tmp/project"},
+		{"/tmp/project/", "/tmp/project"},
+		{"pkg/../../outside", "/tmp/project"},
+	}
+	for _, c := range cases {
+		got := ContainPath(root, c.filePath)
+		if got != c.want {
+			t.Errorf("ContainPath(%q, %q) = %q, want %q", root, c.filePath, got, c.want)
+		}
+	}
+}
+
+func TestGoTestDriver_Detect_GoWork(t *testing.T) {
+	tmpDir := t.TempDir()
+	absRoot, _ := filepath.Abs(tmpDir)
+
+	// Create go.work file
+	goWorkPath := filepath.Join(absRoot, "go.work")
+	goWorkContent := []byte("go 1.21\nuse std\n")
+	if err := os.WriteFile(goWorkPath, goWorkContent, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a test file in any subdirectory (workspace)
+	testDir := filepath.Join(absRoot, "pkg")
+	os.MkdirAll(testDir, 0755)
+	testFile := filepath.Join(testDir, "handler_test.go")
+	os.WriteFile(testFile, []byte("package pkg\n"), 0644)
+
+	driver := &GoTestDriver{}
+	detected, err := driver.Detect(absRoot)
+	if err != nil {
+		t.Fatalf("Detect error: %v", err)
+	}
+	if !detected {
+		t.Error("Detect should return true when go.work exists and test files present")
+	}
+}
+
+func TestGoTestDriver_BuildTestCommand_PathEscape(t *testing.T) {
+	driver := &GoTestDriver{}
+	tmpRoot := t.TempDir()
+	absRoot, _ := filepath.Abs(tmpRoot)
+
+	// Build command with an escaping path
+	cmd := driver.buildTestCommand(context.Background(), absRoot, "../../../etc/passwd")
+
+	// The command should not include the escaping path in args
+	hasEscaping := false
+	for _, arg := range cmd.Args {
+		if strings.Contains(arg, "..") {
+			hasEscaping = true
+		}
+	}
+	if hasEscaping {
+		t.Errorf("BuildTestCommand produced escaping argument: %v", cmd.Args)
 	}
 }

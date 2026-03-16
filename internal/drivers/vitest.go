@@ -27,24 +27,7 @@ func (d *VitestDriver) Detect(root string) (bool, error) {
 		return false, err
 	}
 
-	data, err := os.ReadFile(pkgPath)
-	if err != nil {
-		return false, err
-	}
-
-	var pkg struct {
-		Scripts map[string]string `json:"scripts"`
-	}
-
-	if err := json.Unmarshal(data, &pkg); err != nil {
-		return false, err
-	}
-
-	testScript, ok := pkg.Scripts["test"]
-	if !ok {
-		return false, nil
-	}
-
+	// Determine package manager
 	if _, err := os.Stat(filepath.Join(root, "pnpm-lock.yaml")); err == nil {
 		d.packageManager = "pnpm"
 	} else if _, err := os.Stat(filepath.Join(root, "package-lock.json")); err == nil {
@@ -53,7 +36,51 @@ func (d *VitestDriver) Detect(root string) (bool, error) {
 		d.packageManager = "npm"
 	}
 
-	return strings.Contains(testScript, "vitest"), nil
+	data, err := os.ReadFile(pkgPath)
+	if err != nil {
+		return false, err
+	}
+
+	var pkg struct {
+		Scripts    map[string]string `json:"scripts"`
+		Workspaces []interface{}     `json:"workspaces"`
+	}
+
+	if err := json.Unmarshal(data, &pkg); err != nil {
+		return false, err
+	}
+
+	testScript, ok := pkg.Scripts["test"]
+	if ok && strings.Contains(testScript, "vitest") {
+		return true, nil
+	}
+
+	// If workspaces are defined, check each workspace for vitest
+	if len(pkg.Workspaces) > 0 {
+		workspaceDirs := []string{}
+		for _, ws := range pkg.Workspaces {
+			if wsStr, ok := ws.(string); ok {
+				// Expand glob patterns (simple match)
+				matches, _ := filepath.Glob(filepath.Join(root, wsStr))
+				workspaceDirs = append(workspaceDirs, matches...)
+			}
+		}
+		for _, wsDir := range workspaceDirs {
+			wsPkgPath := filepath.Join(wsDir, "package.json")
+			if data, err := os.ReadFile(wsPkgPath); err == nil {
+				var wsPkg struct {
+					Scripts map[string]string `json:"scripts"`
+				}
+				if err := json.Unmarshal(data, &wsPkg); err == nil {
+					if testScript, ok := wsPkg.Scripts["test"]; ok && strings.Contains(testScript, "vitest") {
+						return true, nil
+					}
+				}
+			}
+		}
+	}
+
+	return false, nil
 }
 
 func (d *VitestDriver) RunTest(ctx context.Context, root string, testCase list.Item) error {
@@ -69,17 +96,68 @@ func (d *VitestDriver) RunTest(ctx context.Context, root string, testCase list.I
 }
 
 func (d *VitestDriver) buildTestCommand(ctx context.Context, root string, filePath string) *exec.Cmd {
-	cmd := exec.CommandContext(ctx, d.packageManager, "vitest", "--run", filePath)
-	cmd.Dir = root
+	// Sanitize the file path to ensure it stays within root
+	safeAbs := ContainPath(root, filePath)
 
+	// Find the package.json root (module root) from the file's directory
+	moduleRoot := d.findPkgRoot(root, safeAbs)
+
+	// Compute relative path from module root to the test file
+	relPath, err := filepath.Rel(moduleRoot, safeAbs)
+	if err != nil {
+		relPath = filePath // fallback to original (shouldn't happen)
+	}
+
+	// If the sanitized path is the module root itself (e.g., filePath escaped), run all tests
+	if relPath == "." {
+		// Run all tests in the module
+		cmd := exec.CommandContext(ctx, d.packageManager, "vitest", "--run")
+		cmd.Dir = moduleRoot
+		return cmd
+	}
+
+	cmd := exec.CommandContext(ctx, d.packageManager, "vitest", "--run", relPath)
+	cmd.Dir = moduleRoot
 	return cmd
+}
+
+// findPkgRoot locates the nearest ancestor directory containing a package.json,
+// starting from the given file's directory and walking upward until within root.
+// If none found, returns root.
+func (d *VitestDriver) findPkgRoot(rootAbs string, fileAbs string) string {
+	absRoot, err := filepath.Abs(rootAbs)
+	if err != nil {
+		return rootAbs
+	}
+	dir := filepath.Dir(fileAbs)
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "package.json")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir || !strings.HasPrefix(filepath.Clean(dir), absRoot+string(filepath.Separator)) {
+			break
+		}
+		dir = parent
+	}
+	return absRoot
 }
 
 func (d *VitestDriver) executeTestCommand(cmd *exec.Cmd) (types.TestStatus, string, error) {
 	output, err := cmd.CombinedOutput()
 	outputString := string(output)
+
 	if err != nil {
-		return types.StatusFailed, outputString, fmt.Errorf("test command %s failed: %w", cmd.Args, err)
+		// If the command started and exited with non-zero, it's a test failure
+		if _, ok := err.(*exec.ExitError); ok {
+			if strings.Contains(outputString, "FAIL") || strings.Contains(outputString, "failed") {
+				return types.StatusFailed, outputString, nil
+			}
+			// Other exit errors still indicate failure
+			return types.StatusFailed, outputString, nil
+		}
+		// Command didn't start or was canceled
+		return types.StatusFailed, outputString, err
 	}
 
 	if strings.Contains(outputString, "failed") {

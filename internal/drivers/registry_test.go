@@ -89,10 +89,26 @@ func TestAllDrivers_OrderIsConsistent(t *testing.T) {
 func TestAllDrivers_Count(t *testing.T) {
 	drivers := AllDrivers()
 
-	// Currently should have exactly 2 drivers (Vitest, Go)
+	// Currently should have exactly 4 drivers (Vitest, Go, Maven, Gradle)
 	// This test will need updating when more drivers are added
 	expectedCount := 4
 	if len(drivers) != expectedCount {
 		t.Errorf("AllDrivers() returned %d drivers, expected %d", len(drivers), expectedCount)
+	}
+}
+
+func TestAllDrivers_ContainsMavenDriver(t *testing.T) {
+	drivers := AllDrivers()
+
+	foundMaven := false
+	for _, driver := range drivers {
+		if driver.Name() == "maven" {
+			foundMaven = true
+			break
+		}
+	}
+
+	if !foundMaven {
+		t.Error("AllDrivers() should contain MavenDriver")
 	}
 }
