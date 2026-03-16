@@ -5,5 +5,6 @@ func AllDrivers() []Driver {
 		&VitestDriver{},
 		&GoTestDriver{},
 		&MavenDriver{},
+		&GradleDriver{},
 	}
 }
