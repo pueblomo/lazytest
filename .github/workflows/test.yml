@@ -48,7 +48,7 @@ jobs:
           fi
 
       - name: Run golangci-lint (non-blocking)
-        uses: golangci/golangci-lint-action@v4
+        uses: golangci/golangci-lint-action@v9
         continue-on-error: true
         with:
           version: latest
