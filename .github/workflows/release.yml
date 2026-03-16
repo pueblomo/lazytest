@@ -10,9 +10,27 @@ permissions:
   packages: write
 
 jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Run tests
+        run: go test -v -race ./...
+
   release:
     name: Release Build
     runs-on: ubuntu-latest
+    needs: test
 
     strategy:
       matrix:
@@ -80,50 +98,6 @@ jobs:
         zip ${{ matrix.output }}.zip ${{ matrix.output }}
         sha256sum ${{ matrix.output }}.zip > ${{ matrix.output }}.zip.sha256
 
-    - name: Upload Release Asset (Unix)
-      if: github.event_name == 'release' && matrix.goos != 'windows'
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ github.event.release.upload_url }}
-        asset_path: ./${{ matrix.output }}.tar.gz
-        asset_name: ${{ matrix.output }}.tar.gz
-        asset_content_type: application/gzip
-
-    - name: Upload Release Checksum (Unix)
-      if: github.event_name == 'release' && matrix.goos != 'windows'
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ github.event.release.upload_url }}
-        asset_path: ./${{ matrix.output }}.tar.gz.sha256
-        asset_name: ${{ matrix.output }}.tar.gz.sha256
-        asset_content_type: text/plain
-
-    - name: Upload Release Asset (Windows)
-      if: github.event_name == 'release' && matrix.goos == 'windows'
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ github.event.release.upload_url }}
-        asset_path: ./${{ matrix.output }}.zip
-        asset_name: ${{ matrix.output }}.zip
-        asset_content_type: application/zip
-
-    - name: Upload Release Checksum (Windows)
-      if: github.event_name == 'release' && matrix.goos == 'windows'
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ github.event.release.upload_url }}
-        asset_path: ./${{ matrix.output }}.zip.sha256
-        asset_name: ${{ matrix.output }}.zip.sha256
-        asset_content_type: text/plain
-
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
@@ -131,3 +105,16 @@ jobs:
         path: |
           ${{ matrix.output }}*
         retention-days: 7
+
+    - name: Upload release assets
+      if: github.event_name == 'release'
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ github.event.release.tag_name }}
+        files: |
+          ${{ matrix.output }}.tar.gz
+          ${{ matrix.output }}.tar.gz.sha256
+          ${{ matrix.output }}.zip
+          ${{ matrix.output }}.zip.sha256
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
