@@ -11,7 +11,7 @@ import (
 )
 
 func runAllTestsCmd(m Model) tea.Cmd {
-	cases := m.list.Items()
+	cases := m.list.VisibleItems()
 	driver := m.driver
 	root := m.root
 

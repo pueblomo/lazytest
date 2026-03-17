@@ -64,7 +64,7 @@ var ListKeys = listKeyMap{
 	),
 	Run: key.NewBinding(
 		key.WithKeys("r"),
-		key.WithHelp("r", "run all tests"),
+		key.WithHelp("r", "run all visible"),
 	),
 	RunSelected: key.NewBinding(
 		key.WithKeys("enter"),
