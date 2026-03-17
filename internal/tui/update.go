@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -91,6 +92,53 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, ListKeys.Quit) || key.Matches(msg, OutputKeys.Quit) || key.Matches(msg, LogsKeys.Quit):
 			m.cancel()
 			return m, tea.Quit
+		}
+
+		if m.focus == FocusList {
+			switch {
+			case key.Matches(msg, ListKeys.Toggle):
+				if item, ok := m.list.SelectedItem().(*types.TestCase); ok {
+					item.Selected = !item.Selected
+					m.appendToLog(fmt.Sprintf("Toggled selection for %s: %v", item.Name, item.Selected))
+				}
+				return m, nil
+			case key.Matches(msg, ListKeys.RunSelected):
+				m.clearLog()
+				if m.driver == nil {
+					m.appendToLog("No driver")
+					break
+				}
+
+				// Determine which tests to run
+				var testsToRun []*types.TestCase
+				for _, item := range m.list.Items() {
+					if tc, ok := item.(*types.TestCase); ok && tc.Selected {
+						testsToRun = append(testsToRun, tc)
+					}
+				}
+
+				// If no explicit selection, use focused item
+				if len(testsToRun) == 0 {
+					if focusedItem := m.list.SelectedItem(); focusedItem != nil {
+						if tc, ok := focusedItem.(*types.TestCase); ok {
+							testsToRun = append(testsToRun, tc)
+						}
+					}
+				}
+
+				if len(testsToRun) == 0 {
+					m.appendToLog("No tests selected")
+					break
+				}
+
+				m.appendToLog(fmt.Sprintf("Running %d selected test(s)...", len(testsToRun)))
+
+				for _, tc := range testsToRun {
+					tc.TestStatus = types.StatusRunning
+				}
+
+				return m, runSelectedTestsCmd(m)
+			}
 		}
 
 		if m.focus == FocusList && m.list.FilterState() != list.Filtering {

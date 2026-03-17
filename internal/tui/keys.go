@@ -33,22 +33,24 @@ func (k logsKeyMap) FullHelp() [][]key.Binding {
 }
 
 type listKeyMap struct {
-	Up     key.Binding
-	Down   key.Binding
-	Run    key.Binding
-	Filter key.Binding
-	Focus  key.Binding
-	Quit   key.Binding
-	Watch  key.Binding
-	Remove key.Binding
+	Up          key.Binding
+	Down        key.Binding
+	Run         key.Binding
+	RunSelected key.Binding
+	Filter      key.Binding
+	Focus       key.Binding
+	Quit        key.Binding
+	Watch       key.Binding
+	Remove      key.Binding
+	Toggle      key.Binding
 }
 
 func (k listKeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Up, k.Down, k.Filter, k.Remove, k.Run, k.Watch, k.Focus, k.Quit}
+	return []key.Binding{k.Up, k.Down, k.Filter, k.Toggle, k.RunSelected, k.Run, k.Watch, k.Remove, k.Focus, k.Quit}
 }
 
 func (k listKeyMap) FullHelp() [][]key.Binding {
-	return [][]key.Binding{{k.Up, k.Down, k.Filter, k.Remove, k.Run, k.Watch, k.Focus, k.Quit}}
+	return [][]key.Binding{{k.Up, k.Down, k.Filter, k.Toggle}, {k.RunSelected, k.Run, k.Watch, k.Remove, k.Focus, k.Quit}}
 }
 
 var ListKeys = listKeyMap{
@@ -62,7 +64,11 @@ var ListKeys = listKeyMap{
 	),
 	Run: key.NewBinding(
 		key.WithKeys("r"),
-		key.WithHelp("r", "run visible tests"),
+		key.WithHelp("r", "run all visible"),
+	),
+	RunSelected: key.NewBinding(
+		key.WithKeys("enter"),
+		key.WithHelp("enter", "run selected"),
 	),
 	Filter: key.NewBinding(
 		key.WithKeys("/"),
@@ -83,6 +89,10 @@ var ListKeys = listKeyMap{
 	Remove: key.NewBinding(
 		key.WithKeys("esc"),
 		key.WithHelp("esc", "remove filter"),
+	),
+	Toggle: key.NewBinding(
+		key.WithKeys(" "),
+		key.WithHelp("space", "toggle select"),
 	),
 }
 

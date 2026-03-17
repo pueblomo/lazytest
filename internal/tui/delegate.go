@@ -47,7 +47,12 @@ func (d TestCaseDelegate) Render(w io.Writer, m list.Model, index int, listItem 
 		watchIcon = types.IconWatching
 	}
 
-	str := fmt.Sprintf("%s %s %s", icon, tc.Name, watchIcon)
+	checkbox := "[ ]"
+	if tc.Selected {
+		checkbox = "[x]"
+	}
+
+	str := fmt.Sprintf("%s %s %s %s", checkbox, icon, tc.Name, watchIcon)
 
 	fn := itemStyle.Render
 	if index == m.Index() {

@@ -23,6 +23,7 @@ type TestCase struct {
 	Output     string
 	TestStatus TestStatus
 	Watched    watched
+	Selected   bool
 }
 
 type watched struct {

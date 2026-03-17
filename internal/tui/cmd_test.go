@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -171,5 +172,143 @@ func TestRunAllTestsCmd_PreservesTestCaseReferences(t *testing.T) {
 	retrievedItems := m.list.Items()
 	if len(retrievedItems) != 2 {
 		t.Errorf("Items should still be 2, got %d", len(retrievedItems))
+	}
+}
+
+func TestRunSelectedTestsCmd_NoTests(t *testing.T) {
+	m := NewModel("/test")
+	m.updateSizes(100, 50)
+
+	// No items in the list
+	m.list.SetItems([]list.Item{})
+
+	cmd := runSelectedTestsCmd(m)
+
+	// Should not return a command if no tests to run
+	if cmd != nil {
+		t.Error("runSelectedTestsCmd should return nil when no tests available")
+	}
+}
+
+func TestRunSelectedTestsCmd_WithSelectedTests(t *testing.T) {
+	m := NewModel("/test")
+	m.updateSizes(100, 50)
+
+	// Add test cases
+	testCase1 := &types.TestCase{
+		Name:       "test1.spec.ts",
+		Filepath:   "/test/test1.spec.ts",
+		TestStatus: types.StatusNotStarted,
+		Selected:   true,
+	}
+	testCase2 := &types.TestCase{
+		Name:       "test2.spec.ts",
+		Filepath:   "/test/test2.spec.ts",
+		TestStatus: types.StatusNotStarted,
+		Selected:   false,
+	}
+	testCase3 := &types.TestCase{
+		Name:       "test3.spec.ts",
+		Filepath:   "/test/test3.spec.ts",
+		TestStatus: types.StatusNotStarted,
+		Selected:   true,
+	}
+
+	m.list.SetItems([]list.Item{testCase1, testCase2, testCase3})
+
+	cmd := runSelectedTestsCmd(m)
+
+	// Should return a command
+	if cmd == nil {
+		t.Error("runSelectedTestsCmd should return a command when selected tests exist")
+	}
+}
+
+func TestRunSelectedTestsCmd_FallbackToFocused(t *testing.T) {
+	m := NewModel("/test")
+	m.updateSizes(100, 50)
+
+	// Add test cases - none selected
+	testCase1 := &types.TestCase{
+		Name:       "test1.spec.ts",
+		Filepath:   "/test/test1.spec.ts",
+		TestStatus: types.StatusNotStarted,
+		Selected:   false,
+	}
+	testCase2 := &types.TestCase{
+		Name:       "test2.spec.ts",
+		Filepath:   "/test/test2.spec.ts",
+		TestStatus: types.StatusNotStarted,
+		Selected:   false,
+	}
+
+	m.list.SetItems([]list.Item{testCase1, testCase2})
+
+	// Select second item (focus, not selection)
+	m.list.Select(1)
+
+	cmd := runSelectedTestsCmd(m)
+
+	// Should return a command (fallback to focused item)
+	if cmd == nil {
+		t.Error("runSelectedTestsCmd should return a command when using fallback")
+	}
+}
+
+func TestRunSelectedTestsCmd_AllSelected(t *testing.T) {
+	m := NewModel("/test")
+	m.updateSizes(100, 50)
+
+	// Add multiple test cases, all selected
+	items := make([]list.Item, 5)
+	for i := 0; i < 5; i++ {
+		items[i] = &types.TestCase{
+			Name:       fmt.Sprintf("test%d.spec.ts", i),
+			Filepath:   fmt.Sprintf("/test/test%d.spec.ts", i),
+			TestStatus: types.StatusNotStarted,
+			Selected:   true,
+		}
+	}
+	m.list.SetItems(items)
+
+	cmd := runSelectedTestsCmd(m)
+
+	if cmd == nil {
+		t.Error("runSelectedTestsCmd should return a command when all tests selected")
+	}
+}
+
+func TestRunSelectedTestsCmd_PreservesSelection(t *testing.T) {
+	m := NewModel("/test")
+	m.updateSizes(100, 50)
+
+	testCase1 := &types.TestCase{
+		Name:       "test1.spec.ts",
+		Filepath:   "/test/test1.spec.ts",
+		TestStatus: types.StatusNotStarted,
+		Selected:   true,
+	}
+	testCase2 := &types.TestCase{
+		Name:       "test2.spec.ts",
+		Filepath:   "/test/test2.spec.ts",
+		TestStatus: types.StatusNotStarted,
+		Selected:   false,
+	}
+
+	m.list.SetItems([]list.Item{testCase1, testCase2})
+
+	// Get the command (but don't execute it - we just want to ensure the model state is preserved)
+	cmd := runSelectedTestsCmd(m)
+
+	if cmd == nil {
+		t.Error("Command should be created")
+	}
+
+	// Verify selection states are unchanged
+	if !testCase1.Selected {
+		t.Error("testCase1 should still be selected")
+	}
+	if testCase2.Selected {
+		t.Error("testCase2 should still be unselected")
 	}
 }
