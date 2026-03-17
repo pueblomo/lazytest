@@ -33,8 +33,8 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.driver = msg.Driver
 
 		return m, func() tea.Msg {
-			ctx, close := context.WithTimeout(context.Background(), 30*time.Second)
-			defer close()
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
 
 			testFiles, err := m.driver.DetectTestFiles(ctx, m.root)
 			if err != nil {

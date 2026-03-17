@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	titel = "lazytest – test dashboard"
+	title = "lazytest – test dashboard"
 )
 
 var (
@@ -32,7 +32,7 @@ func view(m Model) string {
 	}
 
 	titlePane := roundedBorder.Render(lipgloss.JoinVertical(lipgloss.Left,
-		titel,
+		title,
 		root,
 		driver,
 	))

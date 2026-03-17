@@ -110,9 +110,4 @@ func (m *Model) updateSizes(width, height int) {
 	m.outputView.Height = mainHeight
 }
 
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
+
