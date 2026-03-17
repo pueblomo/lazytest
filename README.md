@@ -4,7 +4,6 @@ A simple terminal UI for running tests, inspired by [lazydocker](https://github.
 
 <p align="center">
   <a href="https://github.com/pueblomo/lazytest/actions/workflows/test.yml/badge.svg"><img src="https://github.com/pueblomo/lazytest/actions/workflows/test.yml/badge.svg" alt="Test Badge"></a>
-  <a href="https://codecov.io/gh/pueblomo/lazytest/branch/main/graph/badge.svg"><img src="https://codecov.io/gh/pueblomo/lazytest/branch/main/graph/badge.svg" alt="Coverage Badge"></a>
 </p>
 
 ## Why lazytest?
