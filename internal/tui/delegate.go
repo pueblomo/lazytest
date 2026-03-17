@@ -16,7 +16,9 @@ var (
 	selectedItemStyle = lipgloss.NewStyle().PaddingLeft(0).Foreground(lipgloss.Color("170"))
 )
 
-type TestCaseDelegate struct{}
+type TestCaseDelegate struct {
+	SpinnerFrame string
+}
 
 func (i TestCaseDelegate) Height() int {
 	return 1
@@ -37,7 +39,7 @@ func (d TestCaseDelegate) Render(w io.Writer, m list.Model, index int, listItem 
 	icon := tc.TestStatusIcon()
 
 	if tc.TestStatus == types.StatusRunning {
-		icon = spinnerFrame
+		icon = d.SpinnerFrame
 	}
 
 	watchIcon := ""

@@ -16,7 +16,7 @@ func runAllTestsCmd(m Model) tea.Cmd {
 	root := m.root
 
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		ctx, cancel := context.WithTimeout(m.ctx, 2*time.Minute)
 		defer cancel()
 
 		var wg sync.WaitGroup
@@ -78,6 +78,11 @@ func watchForFileChanges(m Model, tc *types.TestCase) tea.Cmd {
 
 		for {
 			select {
+			case <-m.ctx.Done():
+				return watcherMsg{
+					err:      m.ctx.Err(),
+					testCase: tc,
+				}
 			case event, ok := <-watcher.Events:
 				if !ok {
 					tc.Watched.IsWatching = false
@@ -88,7 +93,7 @@ func watchForFileChanges(m Model, tc *types.TestCase) tea.Cmd {
 				}
 
 				if event.Op&fsnotify.Write == fsnotify.Write {
-					ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+					ctx, cancel := context.WithTimeout(m.ctx, 2*time.Minute)
 					runErr := m.driver.RunTest(ctx, m.root, tc)
 					cancel()
 

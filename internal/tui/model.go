@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/help"
@@ -8,6 +9,7 @@ import (
 	spinner "github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/pueblomo/lazytest/internal/detect"
 	"github.com/pueblomo/lazytest/internal/drivers"
 )
@@ -34,11 +36,26 @@ type Model struct {
 	width           int
 	height          int
 
-	help help.Model
+	help     help.Model
+	delegate *TestCaseDelegate
+
+	ctx    context.Context
+	cancel context.CancelFunc
+
+	logViewCache    scrollbarCache
+	outputViewCache scrollbarCache
+}
+
+type scrollbarCache struct {
+	lastYOffset     int
+	lastTotalLines  int
+	lastHeight      int
+	cachedScrollbar string
 }
 
 func NewModel(root string) Model {
-	l := list.New([]list.Item{}, TestCaseDelegate{}, 0, 0)
+	delegate := &TestCaseDelegate{}
+	l := list.New([]list.Item{}, delegate, 0, 0)
 	l.SetShowHelp(false)
 	l.SetShowTitle(false)
 	l.SetFilteringEnabled(true)
@@ -46,17 +63,23 @@ func NewModel(root string) Model {
 
 	logViewport := viewport.New(0, 0)
 	outputViewport := viewport.New(0, 0)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
 	return Model{
 		root:            root,
 		focus:           FocusList,
 		spinner:         spinner.New(spinner.WithSpinner(spinner.Jump)),
 		list:            l,
+		delegate:        delegate,
 		logView:         logViewport,
 		outputView:      outputViewport,
 		prevSelectedIdx: -1,
 		width:           0,
 		height:          0,
 		help:            help.New(),
+		ctx:             ctx,
+		cancel:          cancel,
 	}
 }
 
@@ -98,6 +121,23 @@ func (m *Model) updateSizes(width, height int) {
 	m.width = width
 	m.height = height
 
+	// Handle uninitialized dimensions
+	if width <= 0 || height <= 0 {
+		return
+	}
+
+	// Compute list width including border and padding.
+	// The list is rendered with roundedBorder and focused style.
+	// Border adds 1 cell on each side, padding(0,2,0) adds 2 cells each side -> total 4.
+	listContentWidth := lipgloss.Width(m.list.View())
+	listWidth := listContentWidth + 4
+
+	remainingWidth := width - listWidth - 2
+	if remainingWidth < 10 {
+		remainingWidth = 10
+	}
+	outputWidth := remainingWidth - 5
+
 	usableHeight := height - 4
 	mainHeight := max(1, usableHeight*80/100)
 	logHeight := max(1, usableHeight*10/100)
@@ -108,6 +148,33 @@ func (m *Model) updateSizes(width, height int) {
 	m.logView.Height = logHeight
 
 	m.outputView.Height = mainHeight
+	m.outputView.Width = outputWidth
 }
 
+func (m *Model) getLogScrollbar() string {
+	cache := &m.logViewCache
+	if cache.lastYOffset == m.logView.YOffset &&
+		cache.lastTotalLines == m.logView.TotalLineCount() &&
+		cache.lastHeight == m.logView.Height {
+		return cache.cachedScrollbar
+	}
+	cache.cachedScrollbar = scrollbar(m.logView)
+	cache.lastYOffset = m.logView.YOffset
+	cache.lastTotalLines = m.logView.TotalLineCount()
+	cache.lastHeight = m.logView.Height
+	return cache.cachedScrollbar
+}
 
+func (m *Model) getOutputScrollbar() string {
+	cache := &m.outputViewCache
+	if cache.lastYOffset == m.outputView.YOffset &&
+		cache.lastTotalLines == m.outputView.TotalLineCount() &&
+		cache.lastHeight == m.outputView.Height {
+		return cache.cachedScrollbar
+	}
+	cache.cachedScrollbar = scrollbar(m.outputView)
+	cache.lastYOffset = m.outputView.YOffset
+	cache.lastTotalLines = m.outputView.TotalLineCount()
+	cache.lastHeight = m.outputView.Height
+	return cache.cachedScrollbar
+}
