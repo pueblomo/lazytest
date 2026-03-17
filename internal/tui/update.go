@@ -33,8 +33,8 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.driver = msg.Driver
 
 		return m, func() tea.Msg {
-			ctx, close := context.WithTimeout(context.Background(), 30*time.Second)
-			defer close()
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
 
 			testFiles, err := m.driver.DetectTestFiles(ctx, m.root)
 			if err != nil {
@@ -63,6 +63,8 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		m.list.SetItems(items)
+		// Recompute layout dimensions now that list content has changed
+		m.updateSizes(m.width, m.height)
 
 	case testsFinishedMsg:
 		if msg.err != nil {
@@ -87,6 +89,7 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 
 		case key.Matches(msg, ListKeys.Quit) || key.Matches(msg, OutputKeys.Quit) || key.Matches(msg, LogsKeys.Quit):
+			m.cancel()
 			return m, tea.Quit
 		}
 
@@ -125,7 +128,6 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case spinner.TickMsg:
 		m.spinner, spinnerCmd = m.spinner.Update(msg)
-		spinnerFrame = m.spinner.View()
 
 	case fileChangedMsg:
 		if msg.testCase != nil {

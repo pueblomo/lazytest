@@ -116,7 +116,7 @@ func assertItemCount(t *testing.T, m Model, expectedCount int) {
 // assertLogCount checks that log has expected number of entries
 func assertLogCount(t *testing.T, m Model, expectedCount int) {
 	t.Helper()
-	actualCount := len(m.logLine)
+	actualCount := len(m.logLines)
 	if actualCount != expectedCount {
 		t.Errorf("log count = %d, want %d", actualCount, expectedCount)
 	}
@@ -125,7 +125,7 @@ func assertLogCount(t *testing.T, m Model, expectedCount int) {
 // assertLogContains checks that log contains expected message
 func assertLogContains(t *testing.T, m Model, expectedMsg string) {
 	t.Helper()
-	for _, log := range m.logLine {
+	for _, log := range m.logLines {
 		if log == expectedMsg {
 			return
 		}

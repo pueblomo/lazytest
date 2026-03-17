@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	titel = "lazytest – test dashboard"
+	title = "lazytest – test dashboard"
 )
 
 var (
@@ -22,6 +22,9 @@ func view(m Model) string {
 		return "Initializing..."
 	}
 
+	// Update delegate's spinner frame before rendering
+	m.delegate.SpinnerFrame = m.spinner.View()
+
 	var b strings.Builder
 	root := fmt.Sprintf("📁 %s", m.root)
 	var driver string
@@ -32,13 +35,13 @@ func view(m Model) string {
 	}
 
 	titlePane := roundedBorder.Render(lipgloss.JoinVertical(lipgloss.Left,
-		titel,
+		title,
 		root,
 		driver,
 	))
 
 	logContent := m.logView.View()
-	logBar := scrollBarStyle.Render(scrollbar(m.logView))
+	logBar := scrollBarStyle.Render(m.getLogScrollbar())
 
 	logPane := lipgloss.JoinHorizontal(
 		lipgloss.Top,
@@ -47,17 +50,9 @@ func view(m Model) string {
 	)
 
 	listView := focused(roundedBorder, m.focus == FocusList).Render(m.list.View())
-	listWidth := lipgloss.Width(listView)
-
-	remainingWidth := m.width - listWidth - 2
-	if remainingWidth < 10 {
-		remainingWidth = 10
-	}
-
-	m.outputView.Width = remainingWidth - 5
 
 	outputContent := m.outputView.View()
-	outputBar := scrollBarStyle.Render(scrollbar(m.outputView))
+	outputBar := scrollBarStyle.Render(m.getOutputScrollbar())
 	outputPane := lipgloss.JoinHorizontal(
 		lipgloss.Top,
 		outputContent,

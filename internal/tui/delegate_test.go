@@ -148,7 +148,7 @@ func TestTestCaseDelegate_Render(t *testing.T) {
 }
 
 func TestTestCaseDelegate_Render_RunningStatus(t *testing.T) {
-	delegate := TestCaseDelegate{}
+	delegate := TestCaseDelegate{SpinnerFrame: "⠋"}
 	var buf bytes.Buffer
 
 	testCase := &types.TestCase{
@@ -156,9 +156,6 @@ func TestTestCaseDelegate_Render_RunningStatus(t *testing.T) {
 		Filepath:   "/path/to/running.spec.ts",
 		TestStatus: types.StatusRunning,
 	}
-
-	// Set spinner frame for running status
-	spinnerFrame = "⠋"
 
 	l := list.New([]list.Item{testCase}, delegate, 0, 0)
 	delegate.Render(&buf, l, 0, testCase)
@@ -226,7 +223,9 @@ func TestTestCaseDelegate_Render_AllStatuses(t *testing.T) {
 
 			// Set spinner frame for running status
 			if status == types.StatusRunning {
-				spinnerFrame = "⠋"
+				delegate.SpinnerFrame = "⠋"
+			} else {
+				delegate.SpinnerFrame = ""
 			}
 
 			l := list.New([]list.Item{testCase}, delegate, 0, 0)
@@ -291,24 +290,6 @@ func TestItemStyle_And_SelectedItemStyle(t *testing.T) {
 	if selectedItemStyle.GetPaddingLeft() != 0 {
 		t.Errorf("selectedItemStyle padding left = %v, want 0", selectedItemStyle.GetPaddingLeft())
 	}
-}
-
-func TestSpinnerFrame_GlobalVariable(t *testing.T) {
-	// Test that spinnerFrame can be set and read
-	originalFrame := spinnerFrame
-
-	spinnerFrame = "test"
-	if spinnerFrame != "test" {
-		t.Errorf("spinnerFrame = %v, want 'test'", spinnerFrame)
-	}
-
-	spinnerFrame = "🔄"
-	if spinnerFrame != "🔄" {
-		t.Errorf("spinnerFrame = %v, want '🔄'", spinnerFrame)
-	}
-
-	// Restore original
-	spinnerFrame = originalFrame
 }
 
 func TestTestCaseDelegate_Render_MultipleTestCases(t *testing.T) {

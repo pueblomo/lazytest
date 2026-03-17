@@ -434,8 +434,8 @@ func TestScrollbar_BarHeightCalculation(t *testing.T) {
 }
 
 func TestView_TitleConstant(t *testing.T) {
-	if titel != "lazytest – test dashboard" {
-		t.Errorf("titel constant = %v, want 'lazytest – test dashboard'", titel)
+	if title != "lazytest – test dashboard" {
+		t.Errorf("title constant = %v, want 'lazytest – test dashboard'", title)
 	}
 }
 

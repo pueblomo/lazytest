@@ -16,33 +16,35 @@ func runAllTestsCmd(m Model) tea.Cmd {
 	root := m.root
 
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		ctx, cancel := context.WithTimeout(m.ctx, 2*time.Minute)
 		defer cancel()
 
 		var wg sync.WaitGroup
-		errCh := make(chan error, len(cases))
+		var mu sync.Mutex
+		var firstErr error
 
 		for i := range cases {
 			wg.Go(func() {
-				err := driver.RunTest(ctx, root, cases[i])
-				if err != nil {
-					errCh <- err
+				tc := cases[i].(*types.TestCase)
+				err := driver.RunTest(ctx, root, tc)
+
+				mu.Lock()
+				if err != nil && firstErr == nil {
+					firstErr = err
 				}
+				if err != nil {
+					tc.TestStatus = types.StatusFailed
+				} else {
+					tc.TestStatus = types.StatusPassed
+				}
+				mu.Unlock()
 			})
 		}
 
 		wg.Wait()
-		close(errCh)
-
-		var err error
-		for e := range errCh {
-			if err == nil {
-				err = e
-			}
-		}
 
 		return testsFinishedMsg{
-			err: err,
+			err: firstErr,
 		}
 	}
 }
@@ -76,6 +78,11 @@ func watchForFileChanges(m Model, tc *types.TestCase) tea.Cmd {
 
 		for {
 			select {
+			case <-m.ctx.Done():
+				return watcherMsg{
+					err:      m.ctx.Err(),
+					testCase: tc,
+				}
 			case event, ok := <-watcher.Events:
 				if !ok {
 					tc.Watched.IsWatching = false
@@ -86,9 +93,15 @@ func watchForFileChanges(m Model, tc *types.TestCase) tea.Cmd {
 				}
 
 				if event.Op&fsnotify.Write == fsnotify.Write {
-					ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-					m.driver.RunTest(ctx, m.root, tc)
+					ctx, cancel := context.WithTimeout(m.ctx, 2*time.Minute)
+					runErr := m.driver.RunTest(ctx, m.root, tc)
 					cancel()
+
+					if runErr != nil {
+						tc.TestStatus = types.StatusFailed
+					} else {
+						tc.TestStatus = types.StatusPassed
+					}
 
 					return fileChangedMsg{
 						testCase: tc,
