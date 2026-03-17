@@ -73,7 +73,7 @@ func TestUpdate_DetectTestsMsg_Error(t *testing.T) {
 	updatedModel := newModel.(Model)
 
 	// Should have logged the error
-	if len(updatedModel.logLine) == 0 {
+	if len(updatedModel.logLines) == 0 {
 		t.Error("update() should log error message")
 	}
 }
@@ -98,7 +98,7 @@ func TestUpdate_TestsFinishedMsg_Success(t *testing.T) {
 	updatedModel := newModel.(Model)
 
 	// Should have logged "Finished"
-	if len(updatedModel.logLine) == 0 {
+	if len(updatedModel.logLines) == 0 {
 		t.Error("update() should log finished message")
 	}
 }
@@ -114,8 +114,8 @@ func TestUpdate_TestsFinishedMsg_Error(t *testing.T) {
 	updatedModel := newModel.(Model)
 
 	// Should have logged both error and finished
-	if len(updatedModel.logLine) < 2 {
-		t.Errorf("update() should log error and finished, got %d logs", len(updatedModel.logLine))
+	if len(updatedModel.logLines) < 2 {
+		t.Errorf("update() should log error and finished, got %d logs", len(updatedModel.logLines))
 	}
 }
 
@@ -237,7 +237,7 @@ func TestUpdate_FileChangedMsg(t *testing.T) {
 	updatedModel := newModel.(Model)
 
 	// Should log the file change
-	if len(updatedModel.logLine) == 0 {
+	if len(updatedModel.logLines) == 0 {
 		t.Error("update() should log file changed message")
 	}
 
@@ -275,7 +275,7 @@ func TestUpdate_WatcherMsg_Error(t *testing.T) {
 	updatedModel := newModel.(Model)
 
 	// Should log the watch error
-	if len(updatedModel.logLine) == 0 {
+	if len(updatedModel.logLines) == 0 {
 		t.Error("update() should log watcher error")
 	}
 }
@@ -294,7 +294,7 @@ func TestUpdate_WatcherMsg_Stopped(t *testing.T) {
 	updatedModel := newModel.(Model)
 
 	// Should log that watching stopped
-	if len(updatedModel.logLine) == 0 {
+	if len(updatedModel.logLines) == 0 {
 		t.Error("update() should log stopped watching message")
 	}
 }
@@ -403,7 +403,7 @@ func TestUpdate_DetectDriverMsg_Error(t *testing.T) {
 	updatedModel := newModel.(Model)
 
 	// Should have logged the error
-	if len(updatedModel.logLine) == 0 {
+	if len(updatedModel.logLines) == 0 {
 		t.Error("update() should log driver detection error")
 	}
 }
@@ -449,7 +449,7 @@ func TestUpdate_PreservesModelState(t *testing.T) {
 	originalRoot := m.root
 	originalWidth := m.width
 	originalHeight := m.height
-	originalLogCount := len(m.logLine)
+	originalLogCount := len(m.logLines)
 
 	// Send a neutral message
 	msg := tea.KeyMsg{
@@ -470,7 +470,7 @@ func TestUpdate_PreservesModelState(t *testing.T) {
 	if updatedModel.height != originalHeight {
 		t.Error("Height should be preserved")
 	}
-	if len(updatedModel.logLine) != originalLogCount {
+	if len(updatedModel.logLines) != originalLogCount {
 		t.Error("Log count should be preserved for unhandled keys")
 	}
 }
@@ -517,7 +517,7 @@ func TestUpdate_KeyMsg_RunTests_NoDriver(t *testing.T) {
 
 	// Should log "No driver" message
 	hasNoDriverLog := false
-	for _, log := range updatedModel.logLine {
+	for _, log := range updatedModel.logLines {
 		if log == "No driver" {
 			hasNoDriverLog = true
 			break
@@ -625,7 +625,7 @@ func TestUpdate_TestsFinishedMsg_WithSelectedItem(t *testing.T) {
 	updatedModel := newModel.(Model)
 
 	// Should update output view with selected item's output
-	if len(updatedModel.logLine) == 0 {
+	if len(updatedModel.logLines) == 0 {
 		t.Error("Should have logged finished message")
 	}
 }

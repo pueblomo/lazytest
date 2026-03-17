@@ -49,9 +49,9 @@ func TestNewModel(t *testing.T) {
 				t.Errorf("height = %v, want 0", m.height)
 			}
 
-			// logLine is nil initially, not an empty slice
-			if len(m.logLine) != 0 {
-				t.Errorf("logLine length = %v, want 0", len(m.logLine))
+			// logLines is nil initially, not an empty slice
+			if len(m.logLines) != 0 {
+				t.Errorf("logLines length = %v, want 0", len(m.logLines))
 			}
 		})
 	}
@@ -157,8 +157,8 @@ func TestModel_AppendToLog(t *testing.T) {
 
 			// Verify logs are in correct order
 			for i, log := range tt.logs {
-				if m.logLine[i] != log {
-					t.Errorf("logLine[%d] = %v, want %v", i, m.logLine[i], log)
+				if m.logLines[i] != log {
+					t.Errorf("logLines[%d] = %v, want %v", i, m.logLines[i], log)
 				}
 			}
 		})
@@ -185,17 +185,17 @@ func TestModel_UpdateLogView(t *testing.T) {
 	m := newTestModelReady()
 
 	// Add logs
-	m.logLine = []string{"log 1", "log 2", "log 3"}
+	m.logLines = []string{"log 1", "log 2", "log 3"}
 	m.updateLogView()
 
 	content := m.logView.View()
 
-	for _, log := range m.logLine {
+	for _, log := range m.logLines {
 		assertViewContains(t, content, log)
 	}
 
 	// Test with empty logs
-	m.logLine = []string{}
+	m.logLines = []string{}
 	m.updateLogView()
 	// Should handle empty content gracefully
 }

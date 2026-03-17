@@ -159,8 +159,8 @@ func TestIntegration_ConcurrentUpdates(t *testing.T) {
 	}
 
 	// Verify model is still in valid state
-	if len(m.logLine) != 5 {
-		t.Errorf("Expected 5 log lines, got %d", len(m.logLine))
+	if len(m.logLines) != 5 {
+		t.Errorf("Expected 5 log lines, got %d", len(m.logLines))
 	}
 
 	// Verify final dimensions
@@ -217,8 +217,8 @@ func TestIntegration_StressTest(t *testing.T) {
 
 	// Verify final state
 	assertItemCount(t, m, 100)
-	if len(m.logLine) < 100 {
-		t.Errorf("Expected at least 100 log entries, got %d", len(m.logLine))
+	if len(m.logLines) < 100 {
+		t.Errorf("Expected at least 100 log entries, got %d", len(m.logLines))
 	}
 }
 

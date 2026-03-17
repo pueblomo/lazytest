@@ -25,7 +25,7 @@ const (
 type Model struct {
 	driver  drivers.Driver
 	root    string
-	logLine []string
+	logLines []string
 
 	focus           Focus
 	spinner         spinner.Model
@@ -98,7 +98,7 @@ func (m Model) View() string {
 }
 
 func (m *Model) updateLogView() {
-	m.logView.SetContent(strings.Join(m.logLine, "\n"))
+	m.logView.SetContent(strings.Join(m.logLines, "\n"))
 	m.logView.GotoBottom()
 }
 
@@ -108,12 +108,12 @@ func (m *Model) updateOutputView(content string) {
 }
 
 func (m *Model) appendToLog(log string) {
-	m.logLine = append(m.logLine, log)
+	m.logLines = append(m.logLines, log)
 	m.updateLogView()
 }
 
 func (m *Model) clearLog() {
-	m.logLine = m.logLine[:0]
+	m.logLines = m.logLines[:0]
 	m.updateLogView()
 }
 
