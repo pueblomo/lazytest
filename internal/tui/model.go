@@ -23,8 +23,8 @@ const (
 )
 
 type Model struct {
-	driver  drivers.Driver
-	root    string
+	driver   drivers.Driver
+	root     string
 	logLines []string
 
 	focus           Focus
