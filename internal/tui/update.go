@@ -152,7 +152,7 @@ func update(m Model, msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				m.appendToLog("Running Tests...")
 
-				for _, item := range m.list.VisibleItems() {
+				for _, item := range m.list.Items() {
 					tc := item.(*types.TestCase)
 					tc.TestStatus = types.StatusRunning
 				}
