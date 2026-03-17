@@ -69,20 +69,9 @@ lazytest
 
 Use arrow keys or `hjkl` to navigate, `Enter` to run a test, `r` to re-run, and `/` to filter. Press `?` for the full list of shortcuts.
 
-### Configuration
-
-lazytest works without configuration, but you can customize behavior via flags:
-
-```bash
-lazytest --watch --focus="User"
-```
-
-Run `lazytest --help` for all options.
-
 ## Platform Support
 
 lazytest is a single Go binary that runs on:
-
 - Linux (amd64, arm64)
 - macOS (Intel, Apple Silicon)
 - Windows (amd64)
