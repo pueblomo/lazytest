@@ -82,13 +82,14 @@ func TestListKeyMap_ShortHelp(t *testing.T) {
 	keys := ListKeys
 	shortHelp := keys.ShortHelp()
 
-	if len(shortHelp) != 8 {
-		t.Errorf("ShortHelp() length = %v, want 8", len(shortHelp))
+	if len(shortHelp) != 10 {
+		t.Errorf("ShortHelp() length = %v, want 10", len(shortHelp))
 	}
 
 	expectedKeys := []key.Binding{
-		keys.Up, keys.Down, keys.Filter, keys.Remove,
-		keys.Run, keys.Watch, keys.Focus, keys.Quit,
+		keys.Up, keys.Down, keys.Filter, keys.Toggle,
+		keys.RunSelected, keys.Run, keys.Watch, keys.Remove,
+		keys.Focus, keys.Quit,
 	}
 	for i := range expectedKeys {
 		if len(shortHelp) <= i {
@@ -101,17 +102,16 @@ func TestListKeyMap_FullHelp(t *testing.T) {
 	keys := ListKeys
 	fullHelp := keys.FullHelp()
 
-	if len(fullHelp) != 1 {
-		t.Errorf("FullHelp() length = %v, want 1", len(fullHelp))
+	if len(fullHelp) != 2 {
+		t.Errorf("FullHelp() length = %v, want 2", len(fullHelp))
 	}
 
-	if len(fullHelp[0]) != 8 {
-		t.Errorf("FullHelp()[0] length = %v, want 8", len(fullHelp[0]))
+	if len(fullHelp[0]) != 4 {
+		t.Errorf("FullHelp()[0] length = %v, want 4", len(fullHelp[0]))
 	}
 
 	expectedKeys := []key.Binding{
-		keys.Up, keys.Down, keys.Filter, keys.Remove,
-		keys.Run, keys.Watch, keys.Focus, keys.Quit,
+		keys.Up, keys.Down, keys.Filter, keys.Toggle,
 	}
 	for i := range expectedKeys {
 		if len(fullHelp[0]) <= i {

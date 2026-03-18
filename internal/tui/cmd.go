@@ -49,6 +49,67 @@ func runAllTestsCmd(m Model) tea.Cmd {
 	}
 }
 
+func runSelectedTestsCmd(m Model) tea.Cmd {
+	// Collect selected test cases
+	var selected []*types.TestCase
+	for _, item := range m.list.Items() {
+		tc := item.(*types.TestCase)
+		if tc.Selected {
+			selected = append(selected, tc)
+		}
+	}
+
+	// If no explicit selection, fall back to focused item
+	if len(selected) == 0 {
+		if focusedItem := m.list.SelectedItem(); focusedItem != nil {
+			if tc, ok := focusedItem.(*types.TestCase); ok {
+				selected = append(selected, tc)
+			}
+		}
+	}
+
+	// If still no tests, do nothing
+	if len(selected) == 0 {
+		return nil
+	}
+
+	driver := m.driver
+	root := m.root
+
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(m.ctx, 2*time.Minute)
+		defer cancel()
+
+		var wg sync.WaitGroup
+		var mu sync.Mutex
+		var firstErr error
+
+		for i := range selected {
+			wg.Go(func() {
+				tc := selected[i]
+				err := driver.RunTest(ctx, root, tc)
+
+				mu.Lock()
+				if err != nil && firstErr == nil {
+					firstErr = err
+				}
+				if err != nil {
+					tc.TestStatus = types.StatusFailed
+				} else {
+					tc.TestStatus = types.StatusPassed
+				}
+				mu.Unlock()
+			})
+		}
+
+		wg.Wait()
+
+		return testsFinishedMsg{
+			err: firstErr,
+		}
+	}
+}
+
 func watchForFileChanges(m Model, tc *types.TestCase) tea.Cmd {
 	return func() tea.Msg {
 		watcher, err := fsnotify.NewWatcher()
