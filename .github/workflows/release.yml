@@ -135,7 +135,7 @@ jobs:
 
   release:
     name: Create Release
-    needs: build
+    needs: [build, tag]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -190,6 +190,6 @@ jobs:
           tag_name: ${{ needs.tag.outputs.tag }}
           name: Release ${{ needs.tag.outputs.tag }}
           body: ${{ steps.changelog.outputs.changelog }}
-          path: dist/*
+          files: dist/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
