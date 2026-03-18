@@ -54,16 +54,9 @@ jobs:
           version: latest
           args: --timeout=5m
 
-      # --- Test (no race on PRs for speed) ---
+      # --- Test ---
       - name: Run tests
-        run: go test -v -coverprofile=coverage.out ./...
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5.5.2
-        with:
-          files: ./coverage.out
-          flags: unittests
-          fail_ci_if_error: false
+        run: go test -v ./...
 
   race:
     name: Race Detector
