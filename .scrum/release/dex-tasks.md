@@ -1,0 +1,5 @@
+- [x] Read existing release.yml
+- [x] Check go.mod
+- [x] Check existing tags
+- [x] Define new release workflow
+- [x] Write workflow to .github/workflows/release.yml

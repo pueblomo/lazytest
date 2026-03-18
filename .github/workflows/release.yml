@@ -3,8 +3,6 @@ name: Release
 on:
   push:
     branches: [ main ]
-  release:
-    types: [ created ]
   workflow_dispatch:
 
 permissions:
@@ -29,8 +27,8 @@ jobs:
       - name: Run tests
         run: go test -v -race ./...
 
-  tag_and_create_release:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  tag:
+    name: Create Tag
     needs: test
     runs-on: ubuntu-latest
     outputs:
@@ -51,35 +49,25 @@ jobs:
       - name: Determine new tag version
         id: version
         run: |
-          # Get the latest tag that looks like vX.Y.Z
-          LATEST_TAG=$(git describe --tags --abbrev=0 --match "v[0-9]*" 2>/dev/null || echo "v0.0.0")
-          # Remove the 'v' prefix
-          LATEST_TAG_NO_V=${LATEST_TAG#v}
-          # Split into major, minor, patch
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$LATEST_TAG_NO_V"
-          # Increment patch
-          NEW_PATCH=$((PATCH + 1))
-          NEW_TAG="v${MAJOR}.${MINOR}.${NEW_PATCH}"
+          # Date-based tag: vYYYY.MM.DD
+          NEW_TAG="v$(date -u +%Y.%m.%d)"
           echo "tag=$NEW_TAG" >> $GITHUB_OUTPUT
           echo "version=$NEW_TAG" >> $GITHUB_OUTPUT
+          echo "Creating tag: $NEW_TAG"
 
       - name: Create tag
         run: |
-          git tag "${{ steps.version.outputs.tag }}"
-          git push origin "${{ steps.version.outputs.tag }}"
+          TAG="${{ steps.version.outputs.tag }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists, skipping"
+          else
+            git tag "$TAG"
+            git push origin "$TAG"
+          fi
 
-      - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          name: Release ${{ steps.version.outputs.tag }}
-          body: Automated release from push to main
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  build_and_upload:
-    needs: [test, tag_and_create_release]
-    if: github.event_name == 'release' || github.event_name == 'push'
+  build:
+    name: Build Binaries
+    needs: [test, tag]
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -118,11 +106,7 @@ jobs:
       - name: Get version
         id: version
         run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
-            echo "version=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
-          else
-            echo "version=${{ needs.tag_and_create_release.outputs.version }}" >> $GITHUB_OUTPUT
-          fi
+          echo "version=${{ needs.tag.outputs.version }}" >> $GITHUB_OUTPUT
 
       - name: Build binary
         env:
@@ -149,16 +133,61 @@ jobs:
             ${{ matrix.output }}.*
           retention-days: 7
 
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Get version
+        id: version
+        run: |
+          echo "version=${{ needs.tag.outputs.version }}" >> $GITHUB_OUTPUT
+
       - name: Download all artifacts
         uses: actions/download-artifact@v3
         with:
           path: dist
 
-      - name: Upload release assets
-        if: github.event_name == 'release' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      - name: Generate changelog
+        id: changelog
+        run: |
+          CURRENT_TAG="${{ needs.tag.outputs.tag }}"
+          # Get previous tag (excluding the current one)
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 --match "v[0-9]*" "$CURRENT_TAG^" 2>/dev/null || echo "")
+          echo "Current tag: $CURRENT_TAG"
+          echo "Previous tag: $PREVIOUS_TAG"
+          # Get changelog entries
+          if [ -n "$PREVIOUS_TAG" ]; then
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" "$PREVIOUS_TAG..$CURRENT_TAG" --no-merges)
+          else
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges)
+          fi
+          if [ -z "$CHANGELOG" ]; then
+            CHANGELOG="- No changes since last release"
+          fi
+          {
+            echo "changelog<<EOF"
+            echo "$CHANGELOG"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+      - name: Create/upload release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event_name == 'release' && github.event.release.tag_name || needs.tag_and_create_release.outputs.tag }}
+          tag_name: ${{ needs.tag.outputs.tag }}
+          name: Release ${{ needs.tag.outputs.tag }}
+          body: ${{ steps.changelog.outputs.changelog }}
           path: dist/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
