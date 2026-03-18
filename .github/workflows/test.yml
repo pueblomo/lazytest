@@ -21,10 +21,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v6.3.0
         with:
           go-version: "1.25"
           cache: true
@@ -48,22 +48,15 @@ jobs:
           fi
 
       - name: Run golangci-lint (non-blocking)
-        uses: golangci/golangci-lint-action@v9
+        uses: golangci/golangci-lint-action@v9.2.0
         continue-on-error: true
         with:
           version: latest
           args: --timeout=5m
 
-      # --- Test (no race on PRs for speed) ---
+      # --- Test ---
       - name: Run tests
-        run: go test -v -coverprofile=coverage.out ./...
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          files: ./coverage.out
-          flags: unittests
-          fail_ci_if_error: false
+        run: go test -v ./...
 
   race:
     name: Race Detector
@@ -72,10 +65,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v6.3.0
         with:
           go-version: "1.25"
           cache: true
