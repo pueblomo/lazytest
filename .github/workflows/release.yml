@@ -49,22 +49,21 @@ jobs:
       - name: Determine new tag version
         id: version
         run: |
-          # Get the latest tag that looks like vX.Y.Z
-          LATEST_TAG=$(git describe --tags --abbrev=0 --match "v[0-9]*" 2>/dev/null || echo "v0.0.0")
-          # Remove the 'v' prefix
-          LATEST_TAG_NO_V=${LATEST_TAG#v}
-          # Split into major, minor, patch
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$LATEST_TAG_NO_V"
-          # Increment patch
-          NEW_PATCH=$((PATCH + 1))
-          NEW_TAG="v${MAJOR}.${MINOR}.${NEW_PATCH}"
+          # Date-based tag: vYYYY.MM.DD
+          NEW_TAG="v$(date -u +%Y.%m.%d)"
           echo "tag=$NEW_TAG" >> $GITHUB_OUTPUT
           echo "version=$NEW_TAG" >> $GITHUB_OUTPUT
+          echo "Creating tag: $NEW_TAG"
 
       - name: Create tag
         run: |
-          git tag "${{ steps.version.outputs.tag }}"
-          git push origin "${{ steps.version.outputs.tag }}"
+          TAG="${{ steps.version.outputs.tag }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists, skipping"
+          else
+            git tag "$TAG"
+            git push origin "$TAG"
+          fi
 
   build:
     name: Build Binaries
@@ -163,18 +162,25 @@ jobs:
       - name: Generate changelog
         id: changelog
         run: |
-          # Get previous tag (skip latest which is the tag we just created)
-          PREVIOUS_TAG=$(git describe --tags --abbrev=0 --match "v[0-9]*" "$(git rev-list --tags --skip=1 --max-count=1)" 2>/dev/null || echo "v0.0.0")
+          CURRENT_TAG="${{ needs.tag.outputs.tag }}"
+          # Get previous tag (excluding the current one)
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 --match "v[0-9]*" "$CURRENT_TAG^" 2>/dev/null || echo "")
+          echo "Current tag: $CURRENT_TAG"
           echo "Previous tag: $PREVIOUS_TAG"
-          echo "Current tag: ${{ needs.tag.outputs.tag }}"
           # Get changelog entries
-          CHANGELOG=$(git log --pretty=format:"- %s" "$PREVIOUS_TAG..${{ needs.tag.outputs.tag }}" --no-merges)
+          if [ -n "$PREVIOUS_TAG" ]; then
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" "$PREVIOUS_TAG..$CURRENT_TAG" --no-merges)
+          else
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges)
+          fi
           if [ -z "$CHANGELOG" ]; then
             CHANGELOG="- No changes since last release"
           fi
-          echo "changelog<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGELOG" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          {
+            echo "changelog<<EOF"
+            echo "$CHANGELOG"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
 
       - name: Create/upload release
         uses: softprops/action-gh-release@v2
